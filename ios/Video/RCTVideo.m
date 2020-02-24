@@ -55,6 +55,7 @@ static int const RCTVideoUnset = -1;
   float _maxBitRate;
 
   BOOL _automaticallyWaitsToMinimizeStalling;
+  NSTimeInterval _minBufferDuration;
   BOOL _muted;
   BOOL _paused;
   BOOL _repeat;
@@ -88,7 +89,8 @@ static int const RCTVideoUnset = -1;
 {
   if ((self = [super init])) {
     _eventDispatcher = eventDispatcher;
-	  _automaticallyWaitsToMinimizeStalling = YES;
+    _automaticallyWaitsToMinimizeStalling = YES;
+    _minBufferDuration = 0; // Let the player choose appropriate level
     _playbackRateObserverRegistered = NO;
     _isExternalPlaybackActiveObserverRegistered = NO;
     _playbackStalled = NO;
@@ -355,7 +357,7 @@ static int const RCTVideoUnset = -1;
       [self addPlayerItemObservers];
       [self setFilter:_filterName];
       [self setMaxBitRate:_maxBitRate];
-      
+      [self setMinimumBufferDuration: _minBufferDuration];
       [_player pause];
         
       if (_playbackRateObserverRegistered) {
@@ -377,9 +379,7 @@ static int const RCTVideoUnset = -1;
       _isExternalPlaybackActiveObserverRegistered = YES;
         
       [self addPlayerTimeObserver];
-      if (@available(iOS 10.0, *)) {
-        [self setAutomaticallyWaitsToMinimizeStalling:_automaticallyWaitsToMinimizeStalling];
-      }
+      [self setAutomaticallyWaitsToMinimizeStalling:_automaticallyWaitsToMinimizeStalling];
 
       //Perform on next run loop, otherwise onVideoLoadStart is nil
       if (self.onVideoLoadStart) {
@@ -828,7 +828,7 @@ static int const RCTVideoUnset = -1;
   } else if (_pipController && !_pictureInPicture && [_pipController isPictureInPictureActive]) {
     dispatch_async(dispatch_get_main_queue(), ^{
       [_pipController stopPictureInPicture];
-	});
+  });
   }
   #endif
 }
@@ -961,12 +961,28 @@ static int const RCTVideoUnset = -1;
   _playerItem.preferredPeakBitRate = maxBitRate;
 }
 
-- (void)setAutomaticallyWaitsToMinimizeStalling:(BOOL)waits
+- (void)setMinimumBufferDuration:(NSTimeInterval)duration
 {
-	_automaticallyWaitsToMinimizeStalling = waits;
-	_player.automaticallyWaitsToMinimizeStalling = waits;
+  _minBufferDuration = duration;
+  if (@available(iOS 10.0, *)) {
+    _playerItem.preferredForwardBufferDuration = duration;
+  }
 }
 
+- (void)setBufferConfig:(NSDictionary *)bufferConfig {
+    NSNumber *minBufferMs = [bufferConfig objectForKey:@"minBufferMs"];
+    if (minBufferMs) {
+      [self setMinimumBufferDuration: [minBufferMs floatValue] / 1000.0];
+    }
+}
+
+- (void)setAutomaticallyWaitsToMinimizeStalling:(BOOL)waits
+{
+  _automaticallyWaitsToMinimizeStalling = waits;
+  if (@available(iOS 10.0, *)) {
+    _player.automaticallyWaitsToMinimizeStalling = waits;
+  }
+}
 
 - (void)applyModifiers
 {
@@ -981,6 +997,7 @@ static int const RCTVideoUnset = -1;
   }
   
   [self setMaxBitRate:_maxBitRate];
+  [self setMinimumBufferDuration: _minBufferDuration];
   [self setSelectedAudioTrack:_selectedAudioTrack];
   [self setSelectedTextTrack:_selectedTextTrack];
   [self setResizeMode:_resizeMode];

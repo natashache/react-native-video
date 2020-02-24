@@ -395,13 +395,13 @@ Example with default values:
 ```
 bufferConfig={{
   minBufferMs: 15000,
-  maxBufferMs: 50000,
-  bufferForPlaybackMs: 2500,
-  bufferForPlaybackAfterRebufferMs: 5000
+  maxBufferMs: 50000, // Not available on iOS
+  bufferForPlaybackMs: 2500, // Not available on iOS
+  bufferForPlaybackAfterRebufferMs: 5000 // Not available on iOS
 }}
 ```
 
-Platforms: Android ExoPlayer
+Platforms: Android ExoPlayer, iOS
 
 #### controls
 Determines whether to show player controls.
