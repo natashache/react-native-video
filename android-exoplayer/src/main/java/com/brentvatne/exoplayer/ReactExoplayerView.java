@@ -7,6 +7,7 @@ import android.content.pm.ActivityInfo;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.Message;
 import android.text.TextUtils;
 import android.util.Log;
@@ -38,6 +39,7 @@ import com.google.android.exoplayer2.PlaybackParameters;
 import com.google.android.exoplayer2.Player;
 import com.google.android.exoplayer2.SimpleExoPlayer;
 import com.google.android.exoplayer2.Timeline;
+import com.google.android.exoplayer2.analytics.AnalyticsCollector;
 import com.google.android.exoplayer2.mediacodec.MediaCodecRenderer;
 import com.google.android.exoplayer2.mediacodec.MediaCodecUtil;
 import com.google.android.exoplayer2.metadata.Metadata;
@@ -64,6 +66,7 @@ import com.google.android.exoplayer2.upstream.BandwidthMeter;
 import com.google.android.exoplayer2.upstream.DataSource;
 import com.google.android.exoplayer2.upstream.DefaultAllocator;
 import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter;
+import com.google.android.exoplayer2.util.Clock;
 import com.google.android.exoplayer2.util.Util;
 
 import java.net.CookieHandler;
@@ -404,7 +407,7 @@ class ReactExoplayerView extends FrameLayout implements
             public void run() {
                 if (player == null) {
                     TrackSelection.Factory videoTrackSelectionFactory = new AdaptiveTrackSelection.Factory();
-                    trackSelector = new DefaultTrackSelector(videoTrackSelectionFactory);
+                    trackSelector = new DefaultTrackSelector(getContext(), videoTrackSelectionFactory);
                     trackSelector.setParameters(trackSelector.buildUponParameters()
                             .setMaxVideoBitrate(maxBitRate == 0 ? Integer.MAX_VALUE : maxBitRate));
 
@@ -418,9 +421,18 @@ class ReactExoplayerView extends FrameLayout implements
                     DefaultRenderersFactory renderersFactory =
                             new DefaultRenderersFactory(getContext())
                                     .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF);
-                    // TODO: Add drmSessionManager to 5th param from: https://github.com/react-native-community/react-native-video/pull/1445
-                    player = ExoPlayerFactory.newSimpleInstance(getContext(), renderersFactory,
-                            trackSelector, defaultLoadControl, null, bandwidthMeter);
+                    Looper looper = Looper.myLooper();
+                    if (looper == null) {
+                        looper = Looper.getMainLooper();
+                    }
+//                    player = new SimpleExoPlayer.Builder(getContext(), renderersFactory, trackSelector, defaultLoadControl, bandwidthMeter, looper, new AnalyticsCollector(Clock.DEFAULT), false, Clock.DEFAULT).build();
+                    player = new SimpleExoPlayer.Builder(getContext(), renderersFactory)
+                            .setTrackSelector(trackSelector)
+                            .setLoadControl(defaultLoadControl)
+                            .setBandwidthMeter(bandwidthMeter)
+                            .setLooper(looper)
+                            .setAnalyticsCollector(new AnalyticsCollector(Clock.DEFAULT))
+                            .build();
                     player.addListener(self);
                     player.addMetadataOutput(self);
                     exoPlayerView.setPlayer(player);
@@ -446,8 +458,9 @@ class ReactExoplayerView extends FrameLayout implements
                         mediaSource = new MergingMediaSource(textSourceArray);
                     }
 
-                    boolean haveResumePosition = resumeWindow != C.INDEX_UNSET;
+                    boolean haveResumePosition = resumeWindow != C.INDEX_UNSET && resumePosition != C.TIME_UNSET;
                     if (haveResumePosition) {
+                        playerNeedsSource = false;
                         player.seekTo(resumeWindow, resumePosition);
                     }
                     player.prepare(mediaSource, !haveResumePosition, false);
@@ -863,8 +876,10 @@ class ReactExoplayerView extends FrameLayout implements
 
     @Override
     public void onSeekProcessed() {
-        eventEmitter.seek(player.getCurrentPosition(), seekTime);
-        seekTime = C.TIME_UNSET;
+        if (seekTime != C.TIME_UNSET) {
+            eventEmitter.seek(player.getCurrentPosition(), seekTime);
+            seekTime = C.TIME_UNSET;
+        }
     }
 
     @Override
@@ -897,7 +912,7 @@ class ReactExoplayerView extends FrameLayout implements
                 // Special case for decoder initialization failures.
                 MediaCodecRenderer.DecoderInitializationException decoderInitializationException =
                         (MediaCodecRenderer.DecoderInitializationException) cause;
-                if (decoderInitializationException.decoderName == null) {
+                if (decoderInitializationException.codecInfo == null) {
                     if (decoderInitializationException.getCause() instanceof MediaCodecUtil.DecoderQueryException) {
                         errorString = getResources().getString(R.string.error_querying_decoders);
                     } else if (decoderInitializationException.secureDecoderRequired) {
@@ -909,7 +924,7 @@ class ReactExoplayerView extends FrameLayout implements
                     }
                 } else {
                     errorString = getResources().getString(R.string.error_instantiating_decoder,
-                            decoderInitializationException.decoderName);
+                            decoderInitializationException.codecInfo.name);
                 }
             }
         }
