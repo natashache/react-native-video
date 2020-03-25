@@ -118,6 +118,7 @@ class VideoEventEmitter {
     private static final String EVENT_PROP_HAS_AUDIO_FOCUS = "hasAudioFocus";
     private static final String EVENT_PROP_IS_BUFFERING = "isBuffering";
     private static final String EVENT_PROP_PLAYBACK_RATE = "playbackRate";
+    private static final String EVENT_PROP_FORCE_PAUSE = "forcePause";
 
     private static final String EVENT_PROP_ERROR = "error";
     private static final String EVENT_PROP_ERROR_STRING = "errorString";
@@ -268,9 +269,10 @@ class VideoEventEmitter {
         receiveEvent(EVENT_TIMED_METADATA, event);
     }
 
-    void audioFocusChanged(boolean hasFocus) {
+    void audioFocusChanged(boolean hasFocus, boolean forcePause) {
         WritableMap map = Arguments.createMap();
         map.putBoolean(EVENT_PROP_HAS_AUDIO_FOCUS, hasFocus);
+        map.putBoolean(EVENT_PROP_FORCE_PAUSE, forcePause);
         receiveEvent(EVENT_AUDIO_FOCUS_CHANGE, map);
     }
 

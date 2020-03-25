@@ -701,7 +701,7 @@ class ReactExoplayerView extends FrameLayout implements
     public void onAudioFocusChange(int focusChange) {
         switch (focusChange) {
             case AudioManager.AUDIOFOCUS_GAIN:
-                eventEmitter.audioFocusChanged(true);
+                eventEmitter.audioFocusChanged(true, false);
                 if (playbackDelayed || resumeOnFocusGain) {
                     synchronized(focusLock) {
                         playbackDelayed = false;
@@ -721,7 +721,7 @@ class ReactExoplayerView extends FrameLayout implements
                     resumeOnFocusGain = false;
                     playbackDelayed = false;
                 }
-                eventEmitter.audioFocusChanged(false);
+                eventEmitter.audioFocusChanged(false, true);
                 pausePlayback();
                 break;
             case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
@@ -729,7 +729,7 @@ class ReactExoplayerView extends FrameLayout implements
                     resumeOnFocusGain = true;
                     playbackDelayed = false;
                 }
-                eventEmitter.audioFocusChanged(false);
+                eventEmitter.audioFocusChanged(false, false);
                 pausePlayback();
                 break;
             case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
