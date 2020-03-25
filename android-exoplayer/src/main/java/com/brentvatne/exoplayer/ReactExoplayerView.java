@@ -4,6 +4,8 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
+import android.media.AudioAttributes;
+import android.media.AudioFocusRequest;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Handler;
@@ -109,6 +111,11 @@ class ReactExoplayerView extends FrameLayout implements
     private SimpleExoPlayer player;
     private DefaultTrackSelector trackSelector;
     private boolean playerNeedsSource;
+
+    private boolean playbackDelayed = false;
+    private boolean playbackNowAuthorized = false;
+    private boolean resumeOnFocusGain = false;
+    private final Object focusLock = new Object();
 
     private int resumeWindow;
     private long resumePosition;
@@ -216,7 +223,11 @@ class ReactExoplayerView extends FrameLayout implements
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
-        initializePlayer();
+        synchronized (this) {
+            if (player == null) {
+                initializePlayer();
+            }
+        }
     }
 
     @Override
@@ -332,15 +343,19 @@ class ReactExoplayerView extends FrameLayout implements
         updateFullScreenIcon(isFullscreen);
 
         // Invoking onPlayerStateChanged event for Player
-        eventListener = new Player.EventListener() {
-            @Override
-            public void onPlayerStateChanged(boolean playWhenReady, int playbackState) {
-                reLayout(playPauseControlContainer);
-                //Remove this eventListener once its executed. since UI will work fine once after the reLayout is done
-                player.removeListener(eventListener);
-            }
-        };
-        player.addListener(eventListener);
+
+        if (eventListener == null) {
+            eventListener = new Player.EventListener() {
+                @Override
+                public void onPlayerStateChanged(boolean playWhenReady, int playbackState) {
+                    reLayout(playPauseControlContainer);
+                    //Remove this eventListener once its executed. since UI will work fine once after the reLayout is done
+                    player.removeListener(eventListener);
+                    eventListener = null;
+                }
+            };
+            player.addListener(eventListener);
+        }
     }
 
     /**
@@ -405,44 +420,46 @@ class ReactExoplayerView extends FrameLayout implements
         new Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
-                if (player == null) {
-                    TrackSelection.Factory videoTrackSelectionFactory = new AdaptiveTrackSelection.Factory();
-                    trackSelector = new DefaultTrackSelector(getContext(), videoTrackSelectionFactory);
-                    trackSelector.setParameters(trackSelector.buildUponParameters()
-                            .setMaxVideoBitrate(maxBitRate == 0 ? Integer.MAX_VALUE : maxBitRate));
+                synchronized (this) {
+                    if (player == null) {
+                        TrackSelection.Factory videoTrackSelectionFactory = new AdaptiveTrackSelection.Factory();
+                        trackSelector = new DefaultTrackSelector(getContext(), videoTrackSelectionFactory);
+                        trackSelector.setParameters(trackSelector.buildUponParameters()
+                                .setMaxVideoBitrate(maxBitRate == 0 ? Integer.MAX_VALUE : maxBitRate));
 
-                    DefaultAllocator allocator = new DefaultAllocator(true, C.DEFAULT_BUFFER_SEGMENT_SIZE);
-                    DefaultLoadControl.Builder defaultLoadControlBuilder = new DefaultLoadControl.Builder();
-                    defaultLoadControlBuilder.setAllocator(allocator);
-                    defaultLoadControlBuilder.setBufferDurationsMs(minBufferMs, maxBufferMs, bufferForPlaybackMs, bufferForPlaybackAfterRebufferMs);
-                    defaultLoadControlBuilder.setTargetBufferBytes(-1);
-                    defaultLoadControlBuilder.setPrioritizeTimeOverSizeThresholds(true);
-                    DefaultLoadControl defaultLoadControl = defaultLoadControlBuilder.createDefaultLoadControl();
-                    DefaultRenderersFactory renderersFactory =
-                            new DefaultRenderersFactory(getContext())
-                                    .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF);
-                    Looper looper = Looper.myLooper();
-                    if (looper == null) {
-                        looper = Looper.getMainLooper();
+                        DefaultAllocator allocator = new DefaultAllocator(true, C.DEFAULT_BUFFER_SEGMENT_SIZE);
+                        DefaultLoadControl.Builder defaultLoadControlBuilder = new DefaultLoadControl.Builder();
+                        defaultLoadControlBuilder.setAllocator(allocator);
+                        defaultLoadControlBuilder.setBufferDurationsMs(minBufferMs, maxBufferMs, bufferForPlaybackMs, bufferForPlaybackAfterRebufferMs);
+                        defaultLoadControlBuilder.setTargetBufferBytes(-1);
+                        defaultLoadControlBuilder.setPrioritizeTimeOverSizeThresholds(true);
+                        DefaultLoadControl defaultLoadControl = defaultLoadControlBuilder.createDefaultLoadControl();
+                        DefaultRenderersFactory renderersFactory =
+                                new DefaultRenderersFactory(getContext())
+                                        .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF);
+                        Looper looper = Looper.myLooper();
+                        if (looper == null) {
+                            looper = Looper.getMainLooper();
+                        }
+    //                    player = new SimpleExoPlayer.Builder(getContext(), renderersFactory, trackSelector, defaultLoadControl, bandwidthMeter, looper, new AnalyticsCollector(Clock.DEFAULT), false, Clock.DEFAULT).build();
+                        player = new SimpleExoPlayer.Builder(getContext(), renderersFactory)
+                                .setTrackSelector(trackSelector)
+                                .setLoadControl(defaultLoadControl)
+                                .setBandwidthMeter(bandwidthMeter)
+                                .setLooper(looper)
+                                .setAnalyticsCollector(new AnalyticsCollector(Clock.DEFAULT))
+                                .build();
+                        player.addListener(self);
+                        player.addMetadataOutput(self);
+                        exoPlayerView.setPlayer(player);
+                        audioBecomingNoisyReceiver.setListener(self);
+                        bandwidthMeter.addEventListener(new Handler(), self);
+                        setPlayWhenReady(!isPaused);
+                        playerNeedsSource = true;
+
+                        PlaybackParameters params = new PlaybackParameters(rate, 1f);
+                        player.setPlaybackParameters(params);
                     }
-//                    player = new SimpleExoPlayer.Builder(getContext(), renderersFactory, trackSelector, defaultLoadControl, bandwidthMeter, looper, new AnalyticsCollector(Clock.DEFAULT), false, Clock.DEFAULT).build();
-                    player = new SimpleExoPlayer.Builder(getContext(), renderersFactory)
-                            .setTrackSelector(trackSelector)
-                            .setLoadControl(defaultLoadControl)
-                            .setBandwidthMeter(bandwidthMeter)
-                            .setLooper(looper)
-                            .setAnalyticsCollector(new AnalyticsCollector(Clock.DEFAULT))
-                            .build();
-                    player.addListener(self);
-                    player.addMetadataOutput(self);
-                    exoPlayerView.setPlayer(player);
-                    audioBecomingNoisyReceiver.setListener(self);
-                    bandwidthMeter.addEventListener(new Handler(), self);
-                    setPlayWhenReady(!isPaused);
-                    playerNeedsSource = true;
-
-                    PlaybackParameters params = new PlaybackParameters(rate, 1f);
-                    player.setPlaybackParameters(params);
                 }
                 if (playerNeedsSource && srcUri != null) {
                     ArrayList<MediaSource> mediaSourceList = buildTextSources();
@@ -555,14 +572,38 @@ class ReactExoplayerView extends FrameLayout implements
         bandwidthMeter.removeEventListener(this);
     }
 
-    private boolean requestAudioFocus() {
+    private void requestAudioFocus() {
         if (disableFocus || srcUri == null) {
-            return true;
+            return;
         }
-        int result = audioManager.requestAudioFocus(this,
-                AudioManager.STREAM_MUSIC,
-                AudioManager.AUDIOFOCUS_GAIN);
-        return result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
+        int result;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            AudioAttributes playbackAttributes = new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build();
+            AudioFocusRequest focusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                    .setAudioAttributes(playbackAttributes)
+                    .setAcceptsDelayedFocusGain(true)
+                    .setOnAudioFocusChangeListener(this)
+                    .build();
+            result = audioManager.requestAudioFocus(focusRequest);
+        } else {
+            result = audioManager.requestAudioFocus(this,
+                    AudioManager.STREAM_MUSIC,
+                    AudioManager.AUDIOFOCUS_GAIN);
+        }
+
+        synchronized(focusLock) {
+            if (result == AudioManager.AUDIOFOCUS_REQUEST_FAILED) {
+                playbackNowAuthorized = false;
+            } else if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+                playbackNowAuthorized = true;
+            } else if (result == AudioManager.AUDIOFOCUS_REQUEST_DELAYED) {
+                playbackDelayed = true;
+                playbackNowAuthorized = false;
+            }
+        }
     }
 
     private void setPlayWhenReady(boolean playWhenReady) {
@@ -571,8 +612,10 @@ class ReactExoplayerView extends FrameLayout implements
         }
 
         if (playWhenReady) {
-            boolean hasAudioFocus = requestAudioFocus();
-            if (hasAudioFocus) {
+            if (!playbackNowAuthorized && !playbackDelayed) {
+                requestAudioFocus();
+            }
+            if (playbackNowAuthorized) {
                 player.setPlayWhenReady(true);
             }
         } else {
@@ -654,37 +697,47 @@ class ReactExoplayerView extends FrameLayout implements
     }
 
     // AudioManager.OnAudioFocusChangeListener implementation
-
     @Override
     public void onAudioFocusChange(int focusChange) {
         switch (focusChange) {
-            case AudioManager.AUDIOFOCUS_LOSS:
-                eventEmitter.audioFocusChanged(false);
-                pausePlayback();
-                audioManager.abandonAudioFocus(this);
-                break;
-            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
-                eventEmitter.audioFocusChanged(false);
-                break;
             case AudioManager.AUDIOFOCUS_GAIN:
                 eventEmitter.audioFocusChanged(true);
-                break;
-            default:
-                break;
-        }
+                if (playbackDelayed || resumeOnFocusGain) {
+                    synchronized(focusLock) {
+                        playbackDelayed = false;
+                        resumeOnFocusGain = false;
+                    }
+                    if (!isPaused) {
+                        startPlayback();
+                    }
 
-        if (player != null) {
-            if (focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) {
+                    if (!muted) {
+                        player.setVolume(audioVolume * 1);
+                    }
+                }
+                break;
+            case AudioManager.AUDIOFOCUS_LOSS:
+                synchronized(focusLock) {
+                    resumeOnFocusGain = false;
+                    playbackDelayed = false;
+                }
+                eventEmitter.audioFocusChanged(false);
+                pausePlayback();
+                break;
+            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
+                synchronized(focusLock) {
+                    resumeOnFocusGain = true;
+                    playbackDelayed = false;
+                }
+                eventEmitter.audioFocusChanged(false);
+                pausePlayback();
+                break;
+            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
                 // Lower the volume
                 if (!muted) {
                     player.setVolume(audioVolume * 0.8f);
                 }
-            } else if (focusChange == AudioManager.AUDIOFOCUS_GAIN) {
-                // Raise it back to normal
-                if (!muted) {
-                    player.setVolume(audioVolume * 1);
-                }
-            }
+                break;
         }
     }
 
