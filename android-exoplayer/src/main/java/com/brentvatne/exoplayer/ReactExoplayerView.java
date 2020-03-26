@@ -111,6 +111,7 @@ class ReactExoplayerView extends FrameLayout implements
     private SimpleExoPlayer player;
     private DefaultTrackSelector trackSelector;
     private boolean playerNeedsSource;
+    private final Object playerLock = new Object();
 
     private boolean playbackDelayed = false;
     private boolean playbackNowAuthorized = false;
@@ -223,10 +224,8 @@ class ReactExoplayerView extends FrameLayout implements
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
-        synchronized (this) {
-            if (player == null) {
-                initializePlayer();
-            }
+        if (player == null) {
+            initializePlayer();
         }
     }
 
@@ -420,7 +419,7 @@ class ReactExoplayerView extends FrameLayout implements
         new Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
-                synchronized (this) {
+                synchronized (playerLock) {
                     if (player == null) {
                         TrackSelection.Factory videoTrackSelectionFactory = new AdaptiveTrackSelection.Factory();
                         trackSelector = new DefaultTrackSelector(getContext(), videoTrackSelectionFactory);
@@ -460,37 +459,37 @@ class ReactExoplayerView extends FrameLayout implements
                         PlaybackParameters params = new PlaybackParameters(rate, 1f);
                         player.setPlaybackParameters(params);
                     }
-                }
-                if (playerNeedsSource && srcUri != null) {
-                    ArrayList<MediaSource> mediaSourceList = buildTextSources();
-                    MediaSource videoSource = buildMediaSource(srcUri, extension);
-                    MediaSource mediaSource;
-                    if (mediaSourceList.size() == 0) {
-                        mediaSource = videoSource;
-                    } else {
-                        mediaSourceList.add(0, videoSource);
-                        MediaSource[] textSourceArray = mediaSourceList.toArray(
-                                new MediaSource[mediaSourceList.size()]
-                        );
-                        mediaSource = new MergingMediaSource(textSourceArray);
-                    }
+                    if (playerNeedsSource && srcUri != null) {
+                        ArrayList<MediaSource> mediaSourceList = buildTextSources();
+                        MediaSource videoSource = buildMediaSource(srcUri, extension);
+                        MediaSource mediaSource;
+                        if (mediaSourceList.size() == 0) {
+                            mediaSource = videoSource;
+                        } else {
+                            mediaSourceList.add(0, videoSource);
+                            MediaSource[] textSourceArray = mediaSourceList.toArray(
+                                    new MediaSource[mediaSourceList.size()]
+                            );
+                            mediaSource = new MergingMediaSource(textSourceArray);
+                        }
 
-                    boolean haveResumePosition = resumeWindow != C.INDEX_UNSET && resumePosition != C.TIME_UNSET;
-                    if (haveResumePosition) {
+                        boolean haveResumePosition = resumeWindow != C.INDEX_UNSET && resumePosition != C.TIME_UNSET;
+                        if (haveResumePosition) {
+                            playerNeedsSource = false;
+                            player.seekTo(resumeWindow, resumePosition);
+                        }
+                        player.prepare(mediaSource, !haveResumePosition, false);
                         playerNeedsSource = false;
-                        player.seekTo(resumeWindow, resumePosition);
+
+                        eventEmitter.loadStart();
+                        loadVideoStarted = true;
                     }
-                    player.prepare(mediaSource, !haveResumePosition, false);
-                    playerNeedsSource = false;
 
-                    eventEmitter.loadStart();
-                    loadVideoStarted = true;
+                    // Initializing the playerControlView
+                    initializePlayerControl();
+                    setControls(controls);
+                    applyModifiers();
                 }
-
-                // Initializing the playerControlView
-                initializePlayerControl();
-                setControls(controls);
-                applyModifiers();
             }
         }, 1);
     }
