@@ -35,7 +35,6 @@ import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.DefaultLoadControl;
 import com.google.android.exoplayer2.DefaultRenderersFactory;
 import com.google.android.exoplayer2.ExoPlaybackException;
-import com.google.android.exoplayer2.ExoPlayerFactory;
 import com.google.android.exoplayer2.Format;
 import com.google.android.exoplayer2.PlaybackParameters;
 import com.google.android.exoplayer2.Player;
@@ -154,6 +153,7 @@ class ReactExoplayerView extends FrameLayout implements
     private Map<String, String> requestHeaders;
     private boolean mReportBandwidth = false;
     private boolean controls;
+    private boolean audioOnly;
     // \ End props
 
     // React
@@ -423,8 +423,12 @@ class ReactExoplayerView extends FrameLayout implements
                     if (player == null) {
                         TrackSelection.Factory videoTrackSelectionFactory = new AdaptiveTrackSelection.Factory();
                         trackSelector = new DefaultTrackSelector(getContext(), videoTrackSelectionFactory);
-                        trackSelector.setParameters(trackSelector.buildUponParameters()
-                                .setMaxVideoBitrate(maxBitRate == 0 ? Integer.MAX_VALUE : maxBitRate));
+                        DefaultTrackSelector.ParametersBuilder parametersBuilder = trackSelector.buildUponParameters()
+                                .setMaxVideoBitrate(maxBitRate == 0 ? Integer.MAX_VALUE : maxBitRate);
+                        if (audioOnly) {
+                            parametersBuilder = parametersBuilder.setRendererDisabled(C.TRACK_TYPE_VIDEO, true);
+                        }
+                        trackSelector.setParameters(parametersBuilder);
 
                         DefaultAllocator allocator = new DefaultAllocator(true, C.DEFAULT_BUFFER_SEGMENT_SIZE);
                         DefaultLoadControl.Builder defaultLoadControlBuilder = new DefaultLoadControl.Builder();
@@ -1369,5 +1373,9 @@ class ReactExoplayerView extends FrameLayout implements
                 removeViewAt(indexOfPC);
             }
         }
+    }
+
+    public void setAudioOnly(boolean audioOnly) {
+        this.audioOnly = audioOnly;
     }
 }
