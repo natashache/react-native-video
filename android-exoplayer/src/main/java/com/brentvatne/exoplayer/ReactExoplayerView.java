@@ -714,7 +714,7 @@ class ReactExoplayerView extends FrameLayout implements
                         startPlayback();
                     }
 
-                    if (!muted) {
+                    if (!muted && player != null) {
                         player.setVolume(audioVolume * 1);
                     }
                 }
@@ -737,7 +737,7 @@ class ReactExoplayerView extends FrameLayout implements
                 break;
             case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
                 // Lower the volume
-                if (!muted) {
+                if (!muted && player != null) {
                     player.setVolume(audioVolume * 0.8f);
                 }
                 break;
