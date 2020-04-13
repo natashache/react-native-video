@@ -464,6 +464,7 @@ class ReactExoplayerView extends FrameLayout implements
                         player.setPlaybackParameters(params);
                     }
                     if (playerNeedsSource && srcUri != null) {
+                        playerNeedsSource = false;
                         ArrayList<MediaSource> mediaSourceList = buildTextSources();
                         MediaSource videoSource = buildMediaSource(srcUri, extension);
                         MediaSource mediaSource;
@@ -479,11 +480,9 @@ class ReactExoplayerView extends FrameLayout implements
 
                         boolean haveResumePosition = resumeWindow != C.INDEX_UNSET && resumePosition != C.TIME_UNSET;
                         if (haveResumePosition) {
-                            playerNeedsSource = false;
                             player.seekTo(resumeWindow, resumePosition);
                         }
                         player.prepare(mediaSource, !haveResumePosition, false);
-                        playerNeedsSource = false;
 
                         eventEmitter.loadStart();
                         loadVideoStarted = true;
@@ -1348,13 +1347,15 @@ class ReactExoplayerView extends FrameLayout implements
         exoPlayerView.setHideShutterView(hideShutterView);
     }
 
-    public void setBufferConfig(int newMinBufferMs, int newMaxBufferMs, int newBufferForPlaybackMs, int newBufferForPlaybackAfterRebufferMs) {
+    public void setBufferConfig(int newMinBufferMs, int newMaxBufferMs, int newBufferForPlaybackMs, int newBufferForPlaybackAfterRebufferMs, boolean forceReload) {
         minBufferMs = newMinBufferMs;
         maxBufferMs = newMaxBufferMs;
         bufferForPlaybackMs = newBufferForPlaybackMs;
         bufferForPlaybackAfterRebufferMs = newBufferForPlaybackAfterRebufferMs;
-        releasePlayer();
-        initializePlayer();
+        if (forceReload) { // Re-initialize the player only when forced
+            releasePlayer();
+            initializePlayer();
+        }
     }
 
     /**

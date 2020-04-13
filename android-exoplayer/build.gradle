@@ -23,13 +23,13 @@ android {
 
 dependencies {
     implementation "com.facebook.react:react-native:${safeExtGet('reactNativeVersion', '+')}"
-    implementation('com.google.android.exoplayer:exoplayer:2.11.3') {
+    implementation('com.google.android.exoplayer:exoplayer:2.11.4') {
         exclude group: 'com.android.support'
     }
 
     // All support libs must use the same version
     implementation "androidx.annotation:annotation:1.1.0"
-    implementation "androidx.core:core:1.1.0"
+    implementation "androidx.core:core:1.2.0"
     implementation "androidx.media:media:1.1.0"
 
     implementation('com.google.android.exoplayer:extension-okhttp:2.11.3') {
