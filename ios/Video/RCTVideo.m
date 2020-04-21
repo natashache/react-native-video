@@ -664,6 +664,7 @@ static int const RCTVideoUnset = -1;
         [self applyModifiers];
       } else if (_playerItem.status == AVPlayerItemStatusFailed && self.onVideoError) {
         self.onVideoError(@{@"error": @{@"code": [NSNumber numberWithInteger: _playerItem.error.code],
+                                        @"message": _playerItem.error.localizedDescription,
                                         @"domain": _playerItem.error.domain},
                             @"target": self.reactTag});
       }

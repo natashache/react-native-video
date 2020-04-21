@@ -67,6 +67,7 @@ import com.google.android.exoplayer2.upstream.BandwidthMeter;
 import com.google.android.exoplayer2.upstream.DataSource;
 import com.google.android.exoplayer2.upstream.DefaultAllocator;
 import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter;
+import com.google.android.exoplayer2.upstream.HttpDataSource;
 import com.google.android.exoplayer2.util.Clock;
 import com.google.android.exoplayer2.util.Util;
 
@@ -959,10 +960,15 @@ class ReactExoplayerView extends FrameLayout implements
 
     @Override
     public void onPlayerError(ExoPlaybackException e) {
+        Log.e(TAG, e.getCause().getMessage());
+
         String errorString = null;
-        Exception ex = e;
+        String errorDomain = null;
+        int errorCode = 0;
+        Exception cause = null;
         if (e.type == ExoPlaybackException.TYPE_RENDERER) {
-            Exception cause = e.getRendererException();
+            errorDomain = "renderer";
+            cause = e.getRendererException();
             if (cause instanceof MediaCodecRenderer.DecoderInitializationException) {
                 // Special case for decoder initialization failures.
                 MediaCodecRenderer.DecoderInitializationException decoderInitializationException =
@@ -984,12 +990,25 @@ class ReactExoplayerView extends FrameLayout implements
             }
         }
         else if (e.type == ExoPlaybackException.TYPE_SOURCE) {
-            ex = e.getSourceException();
-            errorString = getResources().getString(R.string.unrecognized_media_format);
+            cause = e.getSourceException();
+            if (cause instanceof HttpDataSource.InvalidResponseCodeException) {
+                errorCode = ((HttpDataSource.InvalidResponseCodeException) cause).responseCode;
+            }
+            errorDomain = "source";
         }
-        if (errorString != null) {
-            eventEmitter.error(errorString, ex);
+        else if (e.type == ExoPlaybackException.TYPE_UNEXPECTED) {
+            cause = e.getUnexpectedException();
+            errorDomain = "unexpected";
         }
+
+        if (errorString == null) {
+            if (cause != null) {
+                errorString = cause.getLocalizedMessage();
+            } else {
+                errorString = e.getLocalizedMessage();
+            }
+        }
+        eventEmitter.error(errorCode, errorString, errorDomain);
         playerNeedsSource = true;
         if (isBehindLiveWindow(e)) {
             clearResumePosition();

@@ -121,8 +121,9 @@ class VideoEventEmitter {
     private static final String EVENT_PROP_FORCE_PAUSE = "forcePause";
 
     private static final String EVENT_PROP_ERROR = "error";
-    private static final String EVENT_PROP_ERROR_STRING = "errorString";
-    private static final String EVENT_PROP_ERROR_EXCEPTION = "errorException";
+    private static final String EVENT_PROP_ERROR_CODE = "code";
+    private static final String EVENT_PROP_ERROR_MESSAGE = "message";
+    private static final String EVENT_PROP_ERROR_DOMAIN = "domain";
 
     private static final String EVENT_PROP_TIMED_METADATA = "metadata";
 
@@ -224,10 +225,11 @@ class VideoEventEmitter {
         receiveEvent(EVENT_FULLSCREEN_DID_DISMISS, null);
     }
 
-    void error(String errorString, Exception exception) {
+    void error(int code, String message, String domain) {
         WritableMap error = Arguments.createMap();
-        error.putString(EVENT_PROP_ERROR_STRING, errorString);
-        error.putString(EVENT_PROP_ERROR_EXCEPTION, exception.getMessage());
+        error.putInt(EVENT_PROP_ERROR_CODE, code);
+        error.putString(EVENT_PROP_ERROR_MESSAGE, message);
+        error.putString(EVENT_PROP_ERROR_DOMAIN, domain);
         WritableMap event = Arguments.createMap();
         event.putMap(EVENT_PROP_ERROR, error);
         receiveEvent(EVENT_ERROR, event);
