@@ -960,8 +960,6 @@ class ReactExoplayerView extends FrameLayout implements
 
     @Override
     public void onPlayerError(ExoPlaybackException e) {
-        Log.e(TAG, e.getCause().getMessage());
-
         String errorString = null;
         String errorDomain = null;
         int errorCode = 0;
@@ -1008,7 +1006,10 @@ class ReactExoplayerView extends FrameLayout implements
                 errorString = e.getLocalizedMessage();
             }
         }
-        eventEmitter.error(errorCode, errorString, errorDomain);
+        if (errorString != null) {
+            Log.e(TAG, errorString);
+            eventEmitter.error(errorCode, errorString, errorDomain);
+        }
         playerNeedsSource = true;
         if (isBehindLiveWindow(e)) {
             clearResumePosition();
