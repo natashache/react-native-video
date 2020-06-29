@@ -453,6 +453,7 @@ class ReactExoplayerView extends FrameLayout implements
                                 .setLooper(looper)
                                 .setAnalyticsCollector(new AnalyticsCollector(Clock.DEFAULT))
                                 .build();
+                        player.setWakeMode(C.WAKE_MODE_NETWORK);
                         player.addListener(self);
                         player.addMetadataOutput(self);
                         exoPlayerView.setPlayer(player);
