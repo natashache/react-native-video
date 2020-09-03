@@ -294,67 +294,71 @@ class ReactExoplayerView extends FrameLayout implements
      * Initializing Player control
      */
     private void initializePlayerControl() {
-        if (playerControlView == null) {
-            playerControlView = new PlayerControlView(getContext());
-        }
-
-        // Setting the player for the playerControlView
-        playerControlView.setPlayer(player);
-        playerControlView.show();
-        playPauseControlContainer = playerControlView.findViewById(R.id.exo_play_pause_container);
-
-        // Invoking onClick event for exoplayerView
-        exoPlayerView.setOnClickListener(new OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                togglePlayerControlVisibility();
+        try {
+            if (playerControlView == null) {
+                playerControlView = new PlayerControlView(getContext());
             }
-        });
 
-        //Handling the playButton click event
-        ImageButton playButton = playerControlView.findViewById(R.id.exo_play);
-        playButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (player != null && player.getPlaybackState() == Player.STATE_ENDED) {
-                    player.seekTo(0);
-                }
-                setPausedModifier(false);
-            }
-        });
+            // Setting the player for the playerControlView
+            playerControlView.setPlayer(player);
+            playerControlView.show();
+            playPauseControlContainer = playerControlView.findViewById(R.id.exo_play_pause_container);
 
-        //Handling the pauseButton click event
-        ImageButton pauseButton = playerControlView.findViewById(R.id.exo_pause);
-        pauseButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                setPausedModifier(true);
-            }
-        });
-
-        //Handling the fullScreenButton click event
-        FrameLayout fullScreenButton = playerControlView.findViewById(R.id.exo_fullscreen_button);
-        fullScreenButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                setFullscreen(!isFullscreen);
-            }
-        });
-        updateFullScreenIcon(isFullscreen);
-
-        // Invoking onPlayerStateChanged event for Player
-
-        if (eventListener == null) {
-            eventListener = new Player.EventListener() {
+            // Invoking onClick event for exoplayerView
+            exoPlayerView.setOnClickListener(new OnClickListener() {
                 @Override
-                public void onPlayerStateChanged(boolean playWhenReady, int playbackState) {
-                    reLayout(playPauseControlContainer);
-                    //Remove this eventListener once its executed. since UI will work fine once after the reLayout is done
-                    player.removeListener(eventListener);
-                    eventListener = null;
+                public void onClick(View v) {
+                    togglePlayerControlVisibility();
                 }
-            };
-            player.addListener(eventListener);
+            });
+
+            //Handling the playButton click event
+            ImageButton playButton = playerControlView.findViewById(R.id.exo_play);
+            playButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (player != null && player.getPlaybackState() == Player.STATE_ENDED) {
+                        player.seekTo(0);
+                    }
+                    setPausedModifier(false);
+                }
+            });
+
+            //Handling the pauseButton click event
+            ImageButton pauseButton = playerControlView.findViewById(R.id.exo_pause);
+            pauseButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    setPausedModifier(true);
+                }
+            });
+
+            //Handling the fullScreenButton click event
+            FrameLayout fullScreenButton = playerControlView.findViewById(R.id.exo_fullscreen_button);
+            fullScreenButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    setFullscreen(!isFullscreen);
+                }
+            });
+            updateFullScreenIcon(isFullscreen);
+
+            // Invoking onPlayerStateChanged event for Player
+
+            if (eventListener == null) {
+                eventListener = new Player.EventListener() {
+                    @Override
+                    public void onPlayerStateChanged(boolean playWhenReady, int playbackState) {
+                        reLayout(playPauseControlContainer);
+                        //Remove this eventListener once its executed. since UI will work fine once after the reLayout is done
+                        player.removeListener(eventListener);
+                        eventListener = null;
+                    }
+                };
+                player.addListener(eventListener);
+            }
+        }catch (Exception ex){
+            ex.printStackTrace();
         }
     }
 
