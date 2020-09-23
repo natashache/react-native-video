@@ -657,12 +657,16 @@ class ReactExoplayerView extends FrameLayout implements
     }
 
     private void pausePlayback() {
-        if (player != null) {
-            if (player.getPlayWhenReady()) {
-                setPlayWhenReady(false);
-            }
+        try{
+                if (player != null) {
+                    if (player.getPlayWhenReady()) {
+                        setPlayWhenReady(false);
+                    }
+                }
+                setKeepScreenOn(false);
+        }catch (Exception ex){
+            ex.printStackTrace();
         }
-        setKeepScreenOn(false);
     }
 
     private void stopPlayback() {
