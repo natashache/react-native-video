@@ -13,6 +13,10 @@ static NSString *const readyForDisplayKeyPath = @"readyForDisplay";
 static NSString *const playbackRate = @"rate";
 static NSString *const timedMetadata = @"timedMetadata";
 static NSString *const externalPlaybackActive = @"externalPlaybackActive";
+static NSString* const pitchAlgorithmLowQualityZeroLatency = @"lowQualityZeroLatency";
+static NSString* const pitchAlgorithmSpectral = @"spectral";
+static NSString* const pitchAlgorithmTimeDomain = @"timeDomain";
+static NSString* const pitchAlgorithmVarispeed = @"varispeed";
 
 static int const RCTVideoUnset = -1;
 
@@ -52,6 +56,7 @@ static int const RCTVideoUnset = -1;
   /* Keep track of any modifiers, need to be applied after each play */
   float _volume;
   float _rate;
+  NSString * _pitchAlgorithm;
   float _maxBitRate;
 
   BOOL _automaticallyWaitsToMinimizeStalling;
@@ -95,6 +100,7 @@ static int const RCTVideoUnset = -1;
     _isExternalPlaybackActiveObserverRegistered = NO;
     _playbackStalled = NO;
     _rate = 1.0;
+    _pitchAlgorithm = pitchAlgorithmLowQualityZeroLatency;
     _volume = 1.0;
     _resizeMode = @"AVLayerVideoGravityResizeAspectFill";
     _fullscreenAutorotate = YES;
@@ -358,6 +364,7 @@ static int const RCTVideoUnset = -1;
       [self setFilter:_filterName];
       [self setMaxBitRate:_maxBitRate];
       [self setMinimumBufferDuration: _minBufferDuration];
+      [self setPitchAlgorithm:_pitchAlgorithm];
       [_player pause];
         
       if (_playbackRateObserverRegistered) {
@@ -945,6 +952,22 @@ static int const RCTVideoUnset = -1;
   [self applyModifiers];
 }
 
+- (void)setPitchAlgorithm:(NSString *)pitchAlgorithm
+{
+  _pitchAlgorithm = pitchAlgorithm;
+
+  if ([_pitchAlgorithm isEqualToString:pitchAlgorithmLowQualityZeroLatency]) {
+    _playerItem.audioTimePitchAlgorithm = AVAudioTimePitchAlgorithmLowQualityZeroLatency;
+  } else if ([_pitchAlgorithm isEqualToString:pitchAlgorithmSpectral]) {
+    _playerItem.audioTimePitchAlgorithm = AVAudioTimePitchAlgorithmSpectral;
+  } else if ([_pitchAlgorithm isEqualToString:pitchAlgorithmTimeDomain]) {
+    _playerItem.audioTimePitchAlgorithm = AVAudioTimePitchAlgorithmTimeDomain;
+  } else if ([_pitchAlgorithm isEqualToString:pitchAlgorithmVarispeed]) {
+    _playerItem.audioTimePitchAlgorithm = AVAudioTimePitchAlgorithmVarispeed;
+  }
+
+}
+
 - (void)setMuted:(BOOL)muted
 {
   _muted = muted;
@@ -997,6 +1020,7 @@ static int const RCTVideoUnset = -1;
     [_player setMuted:NO];
   }
   
+  [self setPitchAlgorithm:_pitchAlgorithm];
   [self setMaxBitRate:_maxBitRate];
   [self setMinimumBufferDuration: _minBufferDuration];
   [self setSelectedAudioTrack:_selectedAudioTrack];
