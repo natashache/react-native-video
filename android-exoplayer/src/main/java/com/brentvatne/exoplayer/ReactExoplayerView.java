@@ -567,17 +567,21 @@ class ReactExoplayerView extends FrameLayout implements
     }
 
     private void releasePlayer() {
-        if (player != null) {
-            updateResumePosition();
-            player.release();
-            player.removeMetadataOutput(this);
-            trackSelector = null;
-            player = null;
+        try{
+            if (player != null) {
+                updateResumePosition();
+                player.release();
+                player.removeMetadataOutput(this);
+                trackSelector = null;
+                player = null;
+            }
+            progressHandler.removeMessages(SHOW_PROGRESS);
+            themedReactContext.removeLifecycleEventListener(this);
+            audioBecomingNoisyReceiver.removeListener();
+            bandwidthMeter.removeEventListener(this);
+        }catch (Exception ex){
+            ex.printStackTrace();
         }
-        progressHandler.removeMessages(SHOW_PROGRESS);
-        themedReactContext.removeLifecycleEventListener(this);
-        audioBecomingNoisyReceiver.removeListener();
-        bandwidthMeter.removeEventListener(this);
     }
 
     private void requestAudioFocus() {
@@ -652,7 +656,11 @@ class ReactExoplayerView extends FrameLayout implements
             initializePlayer();
         }
         if (!disableFocus) {
-            setKeepScreenOn(true);
+            try{
+                setKeepScreenOn(true);
+            }catch (Exception ex){
+                ex.printStackTrace();
+            }
         }
     }
 
@@ -675,14 +683,18 @@ class ReactExoplayerView extends FrameLayout implements
     }
 
     private void onStopPlayback() {
-        if (isFullscreen) {
-            //When the video stopPlayback.
-            //If the video is in fullscreen, then we will update the video to normal mode.
-            setFullscreen(!isFullscreen);
+        try{
+            if (isFullscreen) {
+                //When the video stopPlayback.
+                //If the video is in fullscreen, then we will update the video to normal mode.
+                setFullscreen(!isFullscreen);
+            }
+            setKeepScreenOn(false);
+            audioManager.abandonAudioFocus(this);
+            enableFullScreenButton(false);
+        }catch (Exception ex){
+            ex.printStackTrace();
         }
-        setKeepScreenOn(false);
-        audioManager.abandonAudioFocus(this);
-        enableFullScreenButton(false);
     }
 
     private void updateResumePosition() {
